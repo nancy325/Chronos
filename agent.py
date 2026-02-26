@@ -39,8 +39,10 @@ from utils import (
     calculate_weather_risk,
     format_weather_summary,
     format_risk_explanation,
-    format_date_human
+    format_date_human,
+    sanitize_user_input
 )
+from weather_advice import get_overall_weather_advice
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -59,9 +61,27 @@ class ChronosDependencies:
 # System Prompt
 # ──────────────────────────────────────────────────────────────────────────────
 
-CHRONOS_SYSTEM_PROMPT = """You are Chronos, a weather-adaptive planning assistant.
+CHRONOS_SYSTEM_PROMPT = """You are Chronos, a highly practical and conversational weather-adaptive planning assistant.
 
-Your task is to help users optimize their plans based on weather conditions.
+Your task is to help users optimize their plans by translating weather conditions into relatable, actionable advice they can easily imagine and act upon.
+
+## WEATHER INTERPRETATION PHILOSOPHY:
+NEVER output raw weather metrics like exact temperatures, wind speeds, humidity percentages, or UV indexes.
+Instead, ALWAYS translate these into how they will make the user FEEL and what they need to DO:
+
+**Examples of GOOD weather advice:**
+- "You'll want a light jacket for the cool breeze" (instead of "15°C, 10 km/h wind")
+- "Tie your hair back - it'll be quite breezy" (instead of "wind speed 25 km/h")
+- "Stay hydrated and seek shade regularly" (instead of "32°C, 75% humidity, UV index 8")
+- "Perfect weather to leave windows open" (instead of "22°C, 45% humidity")
+- "You'll feel pleasantly warm in a t-shirt" (instead of "25°C")
+- "Might want to bring a small umbrella just in case" (instead of "30% precipitation chance")
+
+**Make weather relatable:**
+- Focus on clothing choices (light jacket, shorts, layers)
+- Hair and comfort (tie hair up, wear sunglasses, stay cool)
+- Activity adjustments (take breaks, start early, bring water)
+- Practical preparations (umbrella, sunscreen, extra layers)
 
 ## REALITY CHECK (MANDATORY — run BEFORE anything else):
 Before planning, you MUST validate whether the requested activity is physically
@@ -100,25 +120,36 @@ If the task IS feasible:
 - Group logically: morning activities before afternoon, Day 1 before Day 2, etc.
 
 ## Your Process (only when feasible):
-1. UNDERSTAND the user's plan request
+1. UNDERSTAND and SANITIZE the user's plan request to extract clear keywords
 2. DETERMINE if weather is relevant (outdoor activities, travel, events)
-3. If relevant, USE the weather data provided to you
-4. GENERATE two plan options:
-   - Plan A: Original plan with honest risk assessment
-   - Plan B: Weather-optimized alternative
+3. If relevant, TRANSLATE the weather data into practical, human-friendly advice
+4. GENERATE two plan options with relatable weather guidance:
+   - Plan A: Original plan with honest, practical risk assessment
+   - Plan B: Weather-optimized alternative with actionable improvements
 5. The location is always user-provided — do not override it
 
-## Rules:
-- ALWAYS explain WHY you made each decision
-- NEVER ignore weather risks - be honest about them
-- Provide SPECIFIC, actionable steps (not vague advice)
-- If weather is bad, suggest alternatives (different time, backup venue, etc.)
+## Rules for Practical Advice:
+- ALWAYS translate weather into what users should WEAR, BRING, or DO
+- Make risk explanations relatable: \"You'll get pretty wet\" instead of \"60% precipitation\"
+- Focus on comfort and preparation over technical metrics
+- Suggest specific clothing: \"light sweater,\" \"shorts and t-shirt,\" \"waterproof jacket\"
+- Include comfort tips: \"stay hydrated,\" \"take breaks in shade,\" \"tie hair back\"
+- Make time adjustments feel natural: \"start a bit earlier to avoid the heat\"
+- NEVER ignore weather risks - be honest but practical about them
+- Provide SPECIFIC, actionable steps that users can easily imagine
+- If weather is challenging, suggest alternatives (different time, backup venue, better preparation)
 - Keep explanations concise but informative
 - NEVER guess or infer a location — use only the explicitly provided location
 - For EVERY step, use explicit "time_from" and "time_to" fields in ISO 8601 format (YYYY-MM-DDTHH:MM)
 - NEVER output a combined time string like "08:00 - 10:00" — always use separate from/to fields
 - Both time_from and time_to must be provided together (either both present or both null)
 - ALL step times must fall within the given start_date to end_date range
+
+## Input Sanitization:
+- Extract key activity words from user requests (beach, hiking, picnic, etc.)
+- Identify location indicators clearly
+- Recognize time-sensitive keywords (morning, afternoon, outdoor, etc.)
+- Clean up ambiguous phrasing to provide clear context to weather API
 
 ## Output Requirements:
 - You MUST return ONLY valid JSON matching the schema below
@@ -240,27 +271,37 @@ async def run_chronos(
     """
     try:
         # ─────────────────────────────────────────────────────────────────────
-        # Step 1: Use explicit inputs (no inference)
+        # Step 1: Sanitize and analyze user input
+        # ─────────────────────────────────────────────────────────────────────
+        
+        sanitized_input = sanitize_user_input(user_request)
+        
+        # ─────────────────────────────────────────────────────────────────────
+        # Step 2: Use explicit inputs (no inference)
         # ─────────────────────────────────────────────────────────────────────
         
         # Location is always user-provided — no guessing
         location = location.strip()
         
         # ─────────────────────────────────────────────────────────────────────
-        # Step 2: Determine weather relevance
+        # Step 3: Determine weather relevance (enhanced with sanitized data)
         # ─────────────────────────────────────────────────────────────────────
         
         is_weather_relevant, outdoor_activities = classify_activity_weather_sensitivity(user_request)
         
+        # Enhance with sanitized input analysis
+        enhanced_activities = list(set(outdoor_activities + sanitized_input["activities"]))
+        
         weather_relevance = WeatherRelevance(
-            is_relevant=is_weather_relevant,
-            confidence=0.9 if outdoor_activities else 0.7,
+            is_relevant=is_weather_relevant or sanitized_input["weather_sensitivity"] == "high",
+            confidence=0.9 if enhanced_activities else 0.7,
             explanation=(
-                f"Identified outdoor activities: {', '.join(outdoor_activities)}"
-                if outdoor_activities
-                else "No specific outdoor activities identified, but weather may still be relevant"
+                f"Identified activities: {', '.join(enhanced_activities)}. "
+                f"Weather sensitivity: {sanitized_input['weather_sensitivity']}"
+                if enhanced_activities
+                else f"Weather sensitivity assessed as: {sanitized_input['weather_sensitivity']}"
             ),
-            outdoor_activities=outdoor_activities
+            outdoor_activities=enhanced_activities
         )
         
         # ─────────────────────────────────────────────────────────────────────
@@ -297,7 +338,8 @@ async def run_chronos(
             start_date=start_date,
             end_date=end_date,
             weather_data=weather_data,
-            weather_relevance=weather_relevance
+            weather_relevance=weather_relevance,
+            sanitized_input=sanitized_input
         )
         
         # Run agent and parse the JSON response
@@ -334,7 +376,8 @@ def build_agent_prompt(
     start_date: str,
     end_date: str,
     weather_data: Optional[WeatherCondition],
-    weather_relevance: WeatherRelevance
+    weather_relevance: WeatherRelevance,
+    sanitized_input: dict
 ) -> str:
     """Build the full prompt for the agent with all context."""
     
@@ -348,6 +391,10 @@ def build_agent_prompt(
         f"\n## Provided Context (user-supplied — do NOT override)",
         f"- Location: {location}",
         f"- Date range: {date_display}",
+        f"\n## Sanitized Input Analysis",
+        f"- Key activities identified: {', '.join(sanitized_input['activities']) if sanitized_input['activities'] else 'None specifically identified'}",
+        f"- Time indicators: {', '.join(sanitized_input['time_indicators']) if sanitized_input['time_indicators'] else 'None specified'}",
+        f"- Weather sensitivity assessment: {sanitized_input['weather_sensitivity']}",
     ]
     
     prompt_parts.append(f"\n## Weather Relevance Assessment")
@@ -357,23 +404,26 @@ def build_agent_prompt(
     
     if weather_data:
         risk_level = calculate_weather_risk(weather_data)
-        prompt_parts.append(f"\n## Weather Data for {weather_data.location} on {weather_data.forecast_date}")
-        prompt_parts.append(f"- Condition: {weather_data.condition}")
-        prompt_parts.append(f"- Temperature: {weather_data.temperature_celsius}°C")
-        prompt_parts.append(f"- Precipitation chance: {weather_data.precipitation_chance}%")
-        prompt_parts.append(f"- Wind speed: {weather_data.wind_speed_kmh} km/h")
-        prompt_parts.append(f"- Humidity: {weather_data.humidity_percent}%")
+        prompt_parts.append(f"\n## Weather Information for {weather_data.location} on {weather_data.forecast_date}")
+        prompt_parts.append(f"- Human-friendly summary: {weather_data.human_friendly_summary}")
+        prompt_parts.append(f"- Overall condition: {weather_data.condition}")
         prompt_parts.append(f"- Calculated risk level: {risk_level.value}")
+        prompt_parts.append("- **IMPORTANT: Use the human-friendly summary above in your plans. DO NOT output raw metrics.**")
         if weather_data.is_simulated:
-            prompt_parts.append("- **WARNING: This is ESTIMATED weather data (forecast unavailable for this date). Do NOT present these numbers as real. Clearly tell the user the forecast is an estimate.**")
+            prompt_parts.append("- **WARNING: This is ESTIMATED weather data (forecast unavailable for this date). Clearly mention this is an estimate.**")
     
     prompt_parts.append("\n## Your Task")
     prompt_parts.append("FIRST: Perform the REALITY CHECK. Decide whether the activity is physically feasible at the location.")
     prompt_parts.append("Fill in 'task_feasibility' BEFORE generating any plans.")
     prompt_parts.append("If infeasible: set plan_a and plan_b to null, do NOT invent schedules or weather.")
-    prompt_parts.append("If feasible: generate a ChronosResponse with two plan options.")
-    prompt_parts.append("Plan A should be the original plan with honest risk assessment.")
-    prompt_parts.append("Plan B should be a weather-optimized alternative.")
+    prompt_parts.append("If feasible: generate a ChronosResponse with two relatable plan options.")
+    prompt_parts.append("Plan A should be the original plan with practical risk assessment.")
+    prompt_parts.append("Plan B should be a weather-optimized alternative with actionable improvements.")
+    prompt_parts.append("CRITICAL: Translate ALL weather information into practical advice users can relate to:")
+    prompt_parts.append("- Focus on clothing: 'bring a light jacket', 'shorts and t-shirt weather'")
+    prompt_parts.append("- Include comfort tips: 'stay hydrated', 'tie your hair back', 'take breaks in shade'")
+    prompt_parts.append("- Make preparations clear: 'bring an umbrella', 'wear sunscreen', 'dress in layers'")
+    prompt_parts.append("- Use relatable risk language: 'you might get wet' not 'precipitation probability'")
     prompt_parts.append("Include a decision trace explaining each key decision.")
     prompt_parts.append("IMPORTANT: For every step, use 'time_from' and 'time_to' fields in ISO 8601 format (YYYY-MM-DDTHH:MM). NEVER use a combined time string.")
     prompt_parts.append(f"IMPORTANT: ALL step times MUST fall within {start_date} to {end_date} (inclusive). Do NOT schedule outside this range.")

@@ -15,6 +15,7 @@ from typing import Optional
 from dataclasses import dataclass
 
 from models import RiskLevel, WeatherCondition
+from weather_advice import get_overall_weather_advice, get_precipitation_advice, get_wind_advice
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -476,36 +477,89 @@ def suggest_time_shift(weather: WeatherCondition, original_hour: int) -> Optiona
     return None
 
 
+
+
+
+def sanitize_user_input(user_input: str) -> dict:
+    """
+    Sanitize and extract clear keywords from user input for better API processing.
+    
+    Returns a dictionary with extracted information:
+    - activities: list of identified activities
+    - time_indicators: morning, afternoon, evening, etc.
+    - location_hints: any location-related keywords
+    - weather_sensitivity: overall weather relevance score
+    """
+    text_lower = user_input.lower().strip()
+    
+    # Extract activities
+    found_activities = []
+    for activity in OUTDOOR_ACTIVITIES.union(INDOOR_ACTIVITIES):
+        if activity in text_lower:
+            found_activities.append(activity)
+    
+    # Extract time indicators
+    time_indicators = []
+    time_words = ["morning", "afternoon", "evening", "night", "dawn", "dusk", "noon", "midnight", 
+                  "early", "late", "sunrise", "sunset"]
+    for time_word in time_words:
+        if time_word in text_lower:
+            time_indicators.append(time_word)
+    
+    # Extract location hints
+    location_hints = []
+    for city in COMMON_CITIES:
+        if city in text_lower:
+            location_hints.append(city)
+    
+    # Calculate weather sensitivity
+    outdoor_count = sum(1 for activity in OUTDOOR_ACTIVITIES if activity in text_lower)
+    indoor_count = sum(1 for activity in INDOOR_ACTIVITIES if activity in text_lower)
+    
+    weather_sensitivity = "high" if outdoor_count > indoor_count else "medium" if outdoor_count > 0 else "low"
+    
+    return {
+        "activities": found_activities,
+        "time_indicators": time_indicators,
+        "location_hints": location_hints,
+        "weather_sensitivity": weather_sensitivity,
+        "cleaned_text": text_lower
+    }
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Text Formatting Helpers
 # ──────────────────────────────────────────────────────────────────────────────
 
 def format_weather_summary(weather: WeatherCondition) -> str:
-    """Create a human-readable weather summary."""
-    return (
-        f"{weather.condition.title()}, {weather.temperature_celsius}°C, "
-        f"{weather.precipitation_chance}% chance of rain, "
-        f"wind {weather.wind_speed_kmh} km/h"
-    )
+    """Create a human-readable weather summary with practical advice instead of raw metrics."""
+    return get_overall_weather_advice(weather)
 
 
 def format_risk_explanation(risk: RiskLevel, weather: WeatherCondition) -> str:
-    """Generate explanation for why a risk level was assigned."""
+    """Generate practical explanation for why a risk level was assigned."""
     explanations = []
     
     if weather.precipitation_chance >= 50:
-        explanations.append(f"High precipitation chance ({weather.precipitation_chance}%)")
+        rain_desc = get_precipitation_advice(weather.precipitation_chance)
+        explanations.append(f"Rain concern: {rain_desc}")
     
     if weather.wind_speed_kmh >= 25:
-        explanations.append(f"Strong winds ({weather.wind_speed_kmh} km/h)")
+        wind_desc = get_wind_advice(weather.wind_speed_kmh)
+        explanations.append(f"Wind impact: {wind_desc}")
     
     if "rain" in weather.condition.lower() or "storm" in weather.condition.lower():
-        explanations.append(f"Unfavorable conditions ({weather.condition})")
+        explanations.append(f"Weather conditions: {weather.condition} means you should be prepared")
+    
+    if weather.temperature_celsius > 30:
+        explanations.append("High heat - stay cool and hydrated")
+    elif weather.temperature_celsius < 5:
+        explanations.append("Cold conditions - dress warmly")
     
     if not explanations:
         if risk == RiskLevel.LOW:
-            return "Weather conditions are favorable for outdoor activities."
+            return "Weather conditions are great for your activities - you should be comfortable."
         else:
-            return "Minor weather concerns that shouldn't significantly impact plans."
+            return "Minor weather factors to keep in mind, but shouldn't significantly impact your plans."
     
     return " | ".join(explanations)

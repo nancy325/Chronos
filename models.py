@@ -29,6 +29,7 @@ class WeatherCondition(BaseModel):
     forecast_date: str = Field(description="Date of forecast (YYYY-MM-DD)")
     location: str = Field(description="Location name")
     is_simulated: bool = Field(default=False, description="Whether this is simulated data")
+    human_friendly_summary: Optional[str] = Field(default=None, description="Human-friendly weather advice (clothing, comfort tips)")
 
 
 class TaskStep(BaseModel):

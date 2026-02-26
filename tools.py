@@ -15,6 +15,7 @@ from typing import Optional
 import httpx
 
 from models import WeatherCondition
+from weather_advice import get_overall_weather_advice
 
 
 # Simple in-memory cache: {(location, date): (WeatherCondition, timestamp)}
@@ -74,7 +75,7 @@ def generate_simulated_weather(location: str, date: str) -> WeatherCondition:
         "thunderstorms": random.randint(80, 100)
     }
     
-    return WeatherCondition(
+    weather = WeatherCondition(
         temperature_celsius=round(base_temp, 1),
         condition=condition,
         precipitation_chance=precip_map[condition],
@@ -84,6 +85,11 @@ def generate_simulated_weather(location: str, date: str) -> WeatherCondition:
         location=location,
         is_simulated=True
     )
+    
+    # Add human-friendly weather advice
+    weather.human_friendly_summary = get_overall_weather_advice(weather)
+    
+    return weather
 
 
 async def fetch_weather_from_api(location: str, date: str) -> Optional[WeatherCondition]:
@@ -146,7 +152,7 @@ async def fetch_weather_from_api(location: str, date: str) -> Optional[WeatherCo
             nearest_area = data.get("nearest_area", [{}])[0]
             resolved_name = nearest_area.get("areaName", [{}])[0].get("value", location)
             
-            return WeatherCondition(
+            weather = WeatherCondition(
                 temperature_celsius=round(avg_temp, 1),
                 condition=condition,
                 precipitation_chance=precip_chance,
@@ -156,6 +162,11 @@ async def fetch_weather_from_api(location: str, date: str) -> Optional[WeatherCo
                 location=resolved_name,
                 is_simulated=False
             )
+            
+            # Add human-friendly weather advice
+            weather.human_friendly_summary = get_overall_weather_advice(weather)
+            
+            return weather
             
     except Exception as e:
         # Log error but don't crash - return None to trigger fallback

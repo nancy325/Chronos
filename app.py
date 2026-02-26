@@ -600,7 +600,7 @@ def _render_step(step):
 
 
 def display_weather_info(weather):
-    """Enhanced weather info box with icons and better styling."""
+    """Enhanced weather info box with practical, human-friendly advice."""
     # Weather condition icons
     weather_icons = {
         'clear': '☀️',
@@ -624,13 +624,13 @@ def display_weather_info(weather):
             weather_icon = icon
             break
     
-    sim_badge = '<span style="background: rgba(245, 158, 11, 0.2); color: #d97706; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.75rem; margin-left: 0.5rem;">🔮 Simulated</span>' if weather.is_simulated else ''
+    sim_badge = '<span style="background: rgba(245, 158, 11, 0.2); color: #d97706; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.75rem; margin-left: 0.5rem;">🔮 Estimated</span>' if weather.is_simulated else ''
     
     st.markdown(
         f"""
     <div class="weather-box">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-            <strong style="font-size: 1.2rem;">{weather_icon} Weather Forecast</strong>
+            <strong style="font-size: 1.2rem;">{weather_icon} Weather Advisory</strong>
             {sim_badge}
         </div>
         
@@ -645,23 +645,13 @@ def display_weather_info(weather):
             </div>
         </div>
         
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 1rem; text-align: center;">
-            <div>
-                <div style="font-size: 0.8rem; opacity: 0.8;">☁️ Condition</div>
-                <div style="font-weight: 600;">{weather.condition.title()}</div>
-            </div>
-            <div>
-                <div style="font-size: 0.8rem; opacity: 0.8;">🌡️ Temperature</div>
-                <div style="font-weight: 600;">{weather.temperature_celsius}°C</div>
-            </div>
-            <div>
-                <div style="font-size: 0.8rem; opacity: 0.8;">🌧️ Rain Chance</div>
-                <div style="font-weight: 600;">{weather.precipitation_chance}%</div>
-            </div>
-            <div>
-                <div style="font-size: 0.8rem; opacity: 0.8;">💨 Wind Speed</div>
-                <div style="font-weight: 600;">{weather.wind_speed_kmh} km/h</div>
-            </div>
+        <div style="background: rgba(99, 102, 241, 0.05); border-left: 4px solid #6366f1; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
+            <div style="font-size: 0.9rem; opacity: 0.8; margin-bottom: 0.5rem;">💡 What this means for you:</div>
+            <div style="font-weight: 500; line-height: 1.4;">{weather.human_friendly_summary or 'Weather conditions should be suitable for your activities.'}</div>
+        </div>
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; opacity: 0.7;">
+            <span>Overall condition: {weather.condition.title()}</span>
         </div>
     </div>
     """,
@@ -698,6 +688,9 @@ st.markdown(
         {logo_html}
         <p class="main-header">Chronos</p>
         <p class="sub-header">🌤️ Your Weather-Adaptive Planning Assistant</p>
+        <div style="background: rgba(99, 102, 241, 0.05); border-radius: 12px; padding: 1rem; margin: 1rem 0; text-align: center;">
+            <p style="margin: 0; opacity: 0.8; font-size: 0.9rem;">✨ Get practical advice, not just weather numbers. I'll tell you what to wear, what to bring, and how to stay comfortable!</p>
+        </div>
     </div>
     ''',
     unsafe_allow_html=True,
