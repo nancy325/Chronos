@@ -113,11 +113,32 @@ st.markdown(
         background: white;
         border-radius: 24px;
         padding: 2rem;
-        margin: 0 auto;
+        margin: 1rem auto;
         max-width: 1200px;
         box-shadow: 0 25px 50px rgba(0,0,0,0.1);
         backdrop-filter: blur(10px);
         border: 1px solid rgba(255,255,255,0.2);
+    }
+    
+    /* Ensure proper spacing and alignment */
+    .app-container + .app-container {
+        margin-top: 1.5rem;
+    }
+    
+    /* Fix streamlit default spacing issues */
+    .element-container {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    
+    /* Align text and containers properly */
+    .stMarkdown {
+        margin-bottom: 1rem;
+    }
+    
+    /* Fix container flow */
+    .block-container > div {
+        gap: 0;
     }
     
     /* Header styles */
@@ -177,18 +198,18 @@ st.markdown(
     
     /* Input cards */
     .input-card {
-        background: white;
+        background: #f8fafc;
         border-radius: var(--border-radius);
         padding: 1.5rem;
         margin: 1rem 0;
-        box-shadow: var(--card-shadow);
-        border: 1px solid #e2e8f0;
+        border: 2px solid #e2e8f0;
         transition: all 0.3s ease;
     }
     
     .input-card:hover {
-        box-shadow: var(--card-shadow-hover);
-        transform: translateY(-2px);
+        border-color: var(--primary-color);
+        background: #f1f5f9;
+        transform: translateY(-1px);
     }
     
     /* Weather box - enhanced */
@@ -220,6 +241,12 @@ st.markdown(
         font-size: 1.1rem;
         margin-bottom: 0.5rem;
         display: block;
+    }
+    
+    /* Ensure weather box content aligns properly */
+    .weather-box > div {
+        position: relative;
+        z-index: 2;
     }
     
     /* Suggestion box - enhanced */
@@ -538,8 +565,14 @@ def _group_steps_by_date(steps: list) -> dict[str, list]:
 
 def display_plan(plan: PlanOption, multi_day: bool = False):
     """Render a plan's steps, grouped by date when multi-day."""
-    st.markdown('<div class="plan-card">', unsafe_allow_html=True)
-    st.markdown(f"### 📋 {plan.summary}")
+    st.markdown(
+        f'<div style="background: white; border-radius: var(--border-radius); padding: 1.5rem; '
+        f'margin: 1rem 0; box-shadow: var(--card-shadow); border: 1px solid #e2e8f0; '
+        f'animation: fadeInUp 0.5s ease-out;">'
+        f'<h3 style="margin: 0 0 0.75rem 0;">📋 {plan.summary}</h3>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
 
     # Enhanced risk indicator with icons
     risk_icons = {
@@ -572,8 +605,6 @@ def display_plan(plan: PlanOption, multi_day: bool = False):
     else:
         for step in plan.steps:
             _render_step(step)
-    
-    st.markdown('</div>', unsafe_allow_html=True)
 
 
 def _render_step(step):
@@ -627,34 +658,32 @@ def display_weather_info(weather):
     sim_badge = '<span style="background: rgba(245, 158, 11, 0.2); color: #d97706; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.75rem; margin-left: 0.5rem;">🔮 Estimated</span>' if weather.is_simulated else ''
     
     st.markdown(
-        f"""
-    <div class="weather-box">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-            <strong style="font-size: 1.2rem;">{weather_icon} Weather Advisory</strong>
-            {sim_badge}
-        </div>
-        
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
-            <div style="text-align: center;">
-                <div style="font-size: 0.8rem; opacity: 0.8;">📍 Location</div>
-                <div style="font-weight: 600;">{weather.location}</div>
-            </div>
-            <div style="text-align: center;">
-                <div style="font-size: 0.8rem; opacity: 0.8;">📅 Date</div>
-                <div style="font-weight: 600;">{format_date_human(weather.forecast_date)}</div>
-            </div>
-        </div>
-        
-        <div style="background: rgba(99, 102, 241, 0.05); border-left: 4px solid #6366f1; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
-            <div style="font-size: 0.9rem; opacity: 0.8; margin-bottom: 0.5rem;">💡 What this means for you:</div>
-            <div style="font-weight: 500; line-height: 1.4;">{weather.human_friendly_summary or 'Weather conditions should be suitable for your activities.'}</div>
-        </div>
-        
-        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; opacity: 0.7;">
-            <span>Overall condition: {weather.condition.title()}</span>
-        </div>
-    </div>
-    """,
+        f"""<div class="weather-box">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+<strong style="font-size: 1.2rem;">{weather_icon} Weather Advisory</strong>
+{sim_badge}
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+<div style="text-align: center;">
+<div style="font-size: 0.8rem; opacity: 0.8;">📍 Location</div>
+<div style="font-weight: 600;">{weather.location}</div>
+</div>
+<div style="text-align: center;">
+<div style="font-size: 0.8rem; opacity: 0.8;">📅 Date</div>
+<div style="font-weight: 600;">{format_date_human(weather.forecast_date)}</div>
+</div>
+</div>
+
+<div style="background: rgba(99, 102, 241, 0.05); border-left: 4px solid #6366f1; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
+<div style="font-size: 0.9rem; opacity: 0.8; margin-bottom: 0.5rem;">💡 What this means for you:</div>
+<div style="font-weight: 500; line-height: 1.4;">{weather.human_friendly_summary or 'Weather conditions should be suitable for your activities.'}</div>
+</div>
+
+<div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; opacity: 0.7;">
+<span>Overall condition: {weather.condition.title()}</span>
+</div>
+</div>""",
         unsafe_allow_html=True,
     )
 
@@ -691,7 +720,6 @@ st.markdown(
         <div style="background: rgba(99, 102, 241, 0.05); border-radius: 12px; padding: 1rem; margin: 1rem 0; text-align: center;">
             <p style="margin: 0; opacity: 0.8; font-size: 0.9rem;">✨ Get practical advice, not just weather numbers. I'll tell you what to wear, what to bring, and how to stay comfortable!</p>
         </div>
-    </div>
     ''',
     unsafe_allow_html=True,
 )
@@ -700,7 +728,6 @@ st.markdown(
 # Input Form
 # ──────────────────────────────────────────────────────────────────────────────
 
-#st.markdown('<div class="app-container" style="margin-top: 1rem;"><div class="input-card">', unsafe_allow_html=True)
 st.markdown("### 📝 What are you planning?")
 
 user_input = st.text_area(
@@ -711,11 +738,9 @@ user_input = st.text_area(
     label_visibility="collapsed",
     key="task_input_widget",
 )
-st.markdown('</div>', unsafe_allow_html=True)
 
 # ── Location: city / state / country + auto-detect ────────────────────────
 
-#st.markdown('<div class="input-card">', unsafe_allow_html=True)
 st.markdown("### 📍 Location")
 
 # Auto-detect button — only runs once, caches result
@@ -777,11 +802,8 @@ with country_col:
         key="country_widget",
     )
 
-st.markdown('</div>', unsafe_allow_html=True)
-
 # ── Date range ────────────────────────────────────────────────────────────
 
-#st.markdown('<div class="input-card">', unsafe_allow_html=True)
 st.markdown("### 📅 Dates")
 date_col1, date_col2 = st.columns(2)
 
@@ -797,8 +819,6 @@ with date_col2:
         min_value=datetime.now().date(),
         key="end_date_widget",
     )
-
-st.markdown('</div>', unsafe_allow_html=True)
 
 # ── Generate button ───────────────────────────────────────────────────────
 
@@ -872,6 +892,9 @@ if generate_clicked:
 # ──────────────────────────────────────────────────────────────────────────────
 
 if st.session_state.response:
+    # Open main results container
+    st.markdown('<div class="app-container">', unsafe_allow_html=True)
+    
     response = st.session_state.response
     st.markdown('<div style="margin: 2rem 0; height: 2px; background: linear-gradient(90deg, #667eea, #764ba2); border-radius: 1px;"></div>', unsafe_allow_html=True)
 
@@ -969,10 +992,16 @@ if st.session_state.response:
             # ── Suggestions by Chronos (Plan B) ──────────────────────────
             if response.plan_b:
                 st.markdown("## ✨ Chronos Smart Suggestions")
-                st.markdown('<div class="suggestion-box">', unsafe_allow_html=True)
-                st.markdown(f"### 🎯 {response.plan_b.name}")
+                st.markdown(
+                    f'<div style="background: linear-gradient(135deg, #f093fb 10%, #f5576c 100%); '
+                    f'color: white; border-radius: var(--border-radius); padding: 1.25rem 2rem; '
+                    f'margin: 0.5rem 0 1rem 0; box-shadow: var(--card-shadow); position: relative; '
+                    f'animation: slideInRight 0.6s ease-out;">'
+                    f'<h3 style="margin: 0; color: white; font-size: 1.2rem;">🎯 {response.plan_b.name}</h3>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
                 display_plan(response.plan_b, multi_day=is_multi_day)
-                st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -980,6 +1009,9 @@ if st.session_state.response:
 # ──────────────────────────────────────────────────────────────────────────────
 
 if st.session_state.saved_plans:
+    # Open saved plans container
+    st.markdown('<div class="app-container">', unsafe_allow_html=True)
+    
     st.markdown('<div style="margin: 3rem 0 2rem 0; height: 2px; background: linear-gradient(90deg, #667eea, #764ba2); border-radius: 1px;"></div>', unsafe_allow_html=True)
     st.markdown("## 📚 Previous Plans")
     st.markdown('<p style="color: #718096; margin-bottom: 1.5rem;">Review your previously generated plans</p>', unsafe_allow_html=True)
