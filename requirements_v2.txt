@@ -1,0 +1,17 @@
+# Chronos v2 - Hallucination-Resistant Architecture
+# Additional dependencies for the new pipeline modules
+
+# Existing (from original requirements.txt)
+pydantic>=2.0.0
+pydantic-ai>=0.0.8
+google-generativeai>=0.8.0
+streamlit>=1.28.0
+httpx>=0.25.0
+python-dotenv>=1.0.0
+
+# New dependencies for v2 pipeline
+# (All modules are built with stdlib + pydantic, so minimal additions needed)
+
+# For testing (optional, but recommended)
+pytest>=7.4.0
+pytest-asyncio>=0.21.0

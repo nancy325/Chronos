@@ -56,3 +56,4 @@ logs/
 .pytest_cache/
 .coverage
 htmlcov/
+FILES_CREATED.txt
