@@ -460,7 +460,7 @@ def generate_fallback_response(
     )
     
     plan_a = PlanOption(
-        name="Original Plan",
+        name="Your Adventure",
         summary=f"Proceed with your plan as requested",
         steps=[
             TaskStep(
@@ -474,32 +474,8 @@ def generate_fallback_response(
         ],
         overall_risk=risk_level,
         risk_explanation=format_risk_explanation(risk_level, weather_data) if weather_data else "Weather data unavailable",
-        recommended=risk_level == RiskLevel.LOW
-    )
-    
-    plan_b = PlanOption(
-        name="Weather-Conscious Alternative",
-        summary="Consider weather conditions when proceeding",
-        steps=[
-            TaskStep(
-                order=1,
-                description="Check weather before leaving",
-                time_from=f"{date}T08:00",
-                time_to=f"{date}T08:30",
-                weather_sensitive=False
-            ),
-            TaskStep(
-                order=2,
-                description=f"Proceed with: {user_request}",
-                time_from=f"{date}T09:00",
-                time_to=f"{date}T17:00",
-                weather_sensitive=True,
-                risk_note="Have a backup plan ready"
-            )
-        ],
-        overall_risk=RiskLevel.LOW if risk_level != RiskLevel.CRITICAL else RiskLevel.MEDIUM,
-        risk_explanation="Taking precautions reduces risk",
-        recommended=risk_level != RiskLevel.LOW
+        recommended=risk_level == RiskLevel.LOW,
+        packing_list=None  # No packing list for fallback single-day
     )
     
     return ChronosResponse(
@@ -515,7 +491,7 @@ def generate_fallback_response(
         weather_relevance=weather_relevance,
         weather_data=weather_data,
         plan_a=plan_a,
-        plan_b=plan_b,
+        plan_b=None,  # Single plan only
         decision_trace=[
             DecisionPoint(
                 decision="Used fallback planning",

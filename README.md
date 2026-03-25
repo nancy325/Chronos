@@ -1,347 +1,260 @@
-# WiBD GenAI Hackathon 2026
+# Chronos – Weather-Adaptive Planning Assistant
 
-## Team Name
-HackIconics
+> "Most apps tell you it's raining. Chronos tells you what to do about it." – HackIconics Team
 
----
-
-## Problem Statement
-- Problem Statement Number: 5 (Weather Intelligence)
-- Problem Statement Title: Chronos – Weather-Adaptive Planning Assistant
+Chronos is a weather-intelligent planning companion that fuses LLM reasoning with live (or simulated) meteorological data to generate optimized travel plans with dynamic durations, real tourist place recommendations, and practical packing guidance.
 
 ---
 
-## Project Overview
-> “Most apps tell you it’s raining. Chronos tells you what to do about it.” – Team HackIconics
+## 🎯 Key Features
 
-Chronos is a weather-intelligent planning companion that fuses large-language-model reasoning with live (or simulated) meteorological data to eliminate guesswork from outdoor itineraries.
-- **Challenge**: Traditional planners are static—they only alert you after weather ruins the plan. Chronos reasons *before* it acts, asking “does weather even matter?” and adapting proactively when it does.
-- **Audience**: Individuals, families, logistics leads, and hackathon evaluators who need provably safe itineraries with minimal manual research.
-- **Value Proposition**: The agent rejects infeasible ideas (e.g., “beach day in an inland city”), quantifies weather risk with transparent reasoning, and always offers a weather-optimized alternative so users can act with confidence.
-
-**Key Capabilities (from PPT narrative)**
-- **Temporal Tetris**: Dynamically reschedules steps to sidestep bad weather instead of simply cancelling plans.
-- **Rain-Aware Buffers**: Injects travel/transition buffers when precipitation is likely, modeling “programmatic empathy.”
-- **Decision Transparency**: Displays Option A vs. Option B plus a reasoning trace, so stakeholders see *why* recommendations changed.
-- **Resilient Demos**: Simulation mode mirrors the real pipeline to guarantee stable judging sessions even without network access.
+✅ **Single Optimized Plan** — Generates ONE weather-adaptive plan instead of multiple options  
+✅ **Real Tourist Places** — Uses OpenStreetMap APIs to suggest actual attractions, restaurants, temples (not generic locations)  
+✅ **Dynamic Duration** — Parse flexible durations from user input ("2 weeks", "5 days", "1 week")  
+✅ **Multi-Day Packing Lists** — For trips >1 day, includes practical packing essentials  
+✅ **Weather Guardrails** — Fail-fast validation prevents impossible plans (e.g., beach in inland cities)  
+✅ **Transparent Reasoning** — Shows decision trace and weather impact on recommendations  
+✅ **Simulation Mode** — Works offline with deterministic weather for demos  
 
 ---
 
-## Tech Stack
-- **Programming Language(s)**: Python 3.10+
-- **Frameworks / Libraries**: Streamlit, asyncio, Pydantic 2, pydantic-ai, httpx, python-dotenv
-- **LLMs / APIs**: Google Gemini 2.5 Flash (via pydantic-ai), wttr.in weather API, ip-api/ipapi/wttr geolocation cascade
-- **Database / Vector Store**: Not required; in-memory cache handles transient weather data
-- **Deployment**: Streamlit runtime (local machine or Streamlit Community Cloud)
+## 🏗️ Architecture
 
----
-
-## Architecture / Approach
-- **Experience Layer (`app.py`)**: Streamlit UI with a long-lived asyncio loop, IP-based location detection, multi-day date range pickers, and grouped task rendering. Session state persists user inputs, weather pulls, and previously generated plans for live demos.
-- **Reasoning Core (`agent.py`)**: Agentic pipeline (Gemini 2.5 Flash via pydantic-ai) that performs a mandatory feasibility gate, classifies weather relevance, selectively calls weather tools, then orchestrates dual-plan generation (Option A vs. Option B) with explicit risk deltas.
-- **Schema & Validation (`models.py`)**: Strongly typed `ChronosResponse`, `PlanOption`, and `TaskStep` models force deterministic control—invalid LLM output is rejected before reaching the UI.
-- **Weather Services (`tools.py`)**: Cache-first adapter around wttr.in plus deterministic simulation mode, ensuring continuity even when live forecasts exceed the API window.
-- **Intelligence Utilities (`utils.py`)**: Activity classifiers for outdoor sensitivity, rain-aware buffer injectors, IP geolocation cascade, natural-language date parsing, and risk scoring heuristics (Temporal Tetris + Programmatic Empathy).
-- **Transparency & Safety**: Decision trace objects reveal why each adjustment happened. A fallback strategy mirrors the presentation deck: if the weather API fails, Chronos auto-switches to simulation without breaking the user flow.
-
----
-
-## 📐 System Architecture
+### 6-Stage Pipeline
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        User Input Layer                               │
-│  (Task Description + Location + Date Range)                          │
-└────────────────────────────┬────────────────────────────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                    Streamlit UI (app.py)                             │
-│  - Location auto-detect via IP                                      │
-│  - Multi-day date range picker                                      │
-│  - Session state persistence                                        │
-└────────────────────────────┬────────────────────────────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                  Chronos Agent (agent.py)                            │
-│  ┌──────────────────────────────────────────────────────────────┐   │
-│  │ 1. FEASIBILITY GATE → Validate location & activity           │   │
-│  │    ├─ Infeasible? → Suggest alternative                      │   │
-│  │    └─ Feasible? → Continue                                   │   │
-│  └──────────────────────────────────────────────────────────────┘   │
-│  ┌──────────────────────────────────────────────────────────────┐   │
-│  │ 2. WEATHER RELEVANCE → Classify activity sensitivity          │   │
-│  │    ├─ Not relevant? → Skip weather tools                     │   │
-│  │    └─ Relevant? → Fetch forecast                             │   │
-│  └──────────────────────────────────────────────────────────────┘   │
-└────────────────────────────┬────────────────────────────────────────┘
-                             │
-                    ┌────────┴────────┐
-                    │                 │
-                    ▼                 ▼
-        ┌──────────────────┐  ┌──────────────────┐
-        │  Weather Tools   │  │ Intelligence     │
-        │  (tools.py)      │  │ Utilities        │
-        │                  │  │ (utils.py)       │
-        │ - wttr.in API    │  │                  │
-        │ - Cache (30min   │  │ - Activity       │
-        │   TTL)           │  │   classification │
-        │ - Simulation     │  │ - Risk scoring   │
-        │   mode           │  │ - Buffer inject  │
-        │ - Fallback       │  │ - Date parsing   │
-        └────────────────┬─┘  └────────┬─────────┘
-                         │             │
-                         └─────┬───────┘
-                               │
-                               ▼
-        ┌──────────────────────────────────────────┐
-        │  3. DUAL PLAN GENERATION                 │
-        │  ├─ Option A: Original plan              │
-        │  ├─ Option B: Weather-optimized plan     │
-        │  └─ Risk delta analysis                  │
-        └──────────────┬───────────────────────────┘
-                       │
-                       ▼
-        ┌──────────────────────────────────────────┐
-        │  Pydantic Schema Validation              │
-        │  (models.py)                             │
-        │  - ChronosResponse                       │
-        │  - PlanOption                            │
-        │  - TaskStep                              │
-        │  - WeatherCondition                      │
-        └──────────────┬───────────────────────────┘
-                       │
-                       ▼
-        ┌──────────────────────────────────────────┐
-        │  Streamlit UI Rendering                  │
-        │  - Display plan options                  │
-        │  - Risk indicators & reasoning           │
-        │  - Save plan to history                  │
-        └──────────────────────────────────────────┘
+Step 1: Parse User Prompt (Location, Activity, Duration)
+    ↓
+Step 2: Feasibility Check (Geocoding + Activity Validation)
+    ↓ [FAIL FAST if invalid]
+Step 3: Enrichment (Non-blocking parallel):
+    • Fetch Weather Data (informational)
+    • Detect User Location & Travel Time
+    • Find Nearby Places (OpenStreetMap)
+    ↓
+Step 4: Duration Logic (dynamic parsing)
+    ↓
+Step 5: Context Preparation (aggregate Weather + Travel + Places)
+    ↓
+Step 6: Hand-off to planner_agent.py for LLM generation
 ```
 
-### Data Flow Example: Beach Day Planning
+### Tech Stack
+
+- **Frontend**: Streamlit (interactive UI with session persistence)
+- **LLM**: Google Gemini 2.5 Flash (via pydantic-ai)
+- **APIs**:
+  - **Location**: OpenStreetMap Nominatim (geocoding)
+  - **Places**: OpenStreetMap Overpass QL (POI discovery)
+  - **Weather**: wttr.in or OpenWeatherMap
+  - **Geolocation**: IP-based fallback
+- **Validation**: Pydantic 2 (strict schema enforcement)
+- **Async**: asyncio + httpx (concurrent requests)
+
+---
+
+## 📁 Project Structure
+
 ```
-User Input: "Plan a beach day in Miami for tomorrow"
-            ↓
-Feasibility: ✅ Miami has beaches (valid location)
-            ↓
-Weather Relevance: ✅ Beach activities highly weather-sensitive
-            ↓
-Fetch Forecast: Get Miami weather for tomorrow (from cache/API)
-            ↓
-Risk Assessment: 
-  - Option A: Original (10 AM - 6 PM beach) → HIGH RISK (60% rain predicted)
-  - Option B: Optimized (Early morning 7-11 AM, shift indoors if needed) → MEDIUM RISK
-            ↓
-Display Plans: User sees both options with risk deltas and reasoning trace
+Chronos/
+├── app.py                          # Streamlit UI
+├── agent.py                        # PydanticAI reasoning core
+├── pipeline.py                     # 6-stage validation pipeline
+├── planner_agent.py               # LLM prompt + output schemas
+├── models.py                       # Pydantic data models
+├── geocoding.py                    # Location validation (OSM Nominatim)
+├── sanity_check.py                # Activity feasibility rules
+├── weather_api.py                  # Weather fetching (wttr.in)
+├── weather_advice.py              # Human-friendly weather guidance
+├── user_location.py               # IP-based geolocation + travel time
+├── google_maps_integration.py     # OpenStreetMap Overpass API (POI search)
+├── tools.py                        # Utility tools for agent
+├── utils.py                        # Helper functions
+├── requirements.txt                # Dependencies
+├── .env.example                    # Environment variable template
+└── ARCHITECTURE_GUIDE.md           # Detailed technical documentation
+```
+
+---
+
+## 🚀 Quick Start
+
+### Installation
+
+```bash
+# Clone repo
+git clone <repo-url>
+cd Chronos
+
+# Create virtual environment
+python -m venv .venv-1
+.venv-1\Scripts\activate  # Windows
+source .venv-1/bin/activate  # macOS/Linux
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Set environment variables
+cp .env.example .env
+# Add your GEMINI_API_KEY to .env
+```
+
+### Run the App
+
+```bash
+streamlit run app.py
+```
+
+The app opens at `http://localhost:8501`
+
+### Example Usage
+
+1. **Input**: "Beach vacation in Goa for 1 week"
+2. **App processes**:
+   - Validates Goa is a real coastal location
+   - Detects activity is "beach" (outdoor)
+   - Fetches real weather
+   - Parses duration as 7 days
+   - Finds nearby beaches, restaurants, temples via OSM
+3. **Output**:
+   - 1 optimized plan with real place names ("Anjuna Beach", "Mango Tree Café", "Basilica of Bom Jesus")
+   - Time-bounded steps for each day
+   - Packing list: ["Lightweight clothing", "Sunscreen SPF 50+", "Water shoes", "Hat", "Camera"]
+   - Weather advisory with practical tips
+
+---
+
+## 🔧 Configuration
+
+### Environment Variables (`.env`)
+
+```
+GEMINI_API_KEY=your-api-key-here
+SIMULATION_MODE=false  # Set to true for offline demos
+```
+
+### Simulation Mode
+
+For testing without API keys, set `SIMULATION_MODE=true` in `.env`:
+- Weather data becomes deterministic mock data
+- OSM APIs are mocked with sample POIs
+- Geolocation returns a default city
+
+---
+
+## 📊 How It Works
+
+### Single Plan Generation
+
+The planner receives a **PlannerContext** object containing:
+- **Activity**: User's requested activity
+- **Location**: Validated location with coordinates
+- **Duration**: Parsed duration with start/end dates
+- **Weather**: Actual weather data (never hallucinated)
+- **Nearby Places**: Real POIs from OpenStreetMap
+- **Travel Info**: User location → destination travel time estimate
+- **Feasibility**: Pre-checked that activity is geographically viable
+
+The LLM then generates **1 optimized plan** with:
+- ✅ Real place names (from OSM list, not made up)
+- ✅ Time-bounded steps (day-by-day for multi-day trips)
+- ✅ Practical packing list (for multi-day only)
+- ✅ Weather-sensitive flags on each activity
+- ✅ Risk assessment (low/medium/high)
+
+### Fallback Strategy
+
+If LLM fails:
+- App auto-switches to fallback plan generator
+- Same structure, rule-based recommendations
+- No service interruption in demos
+
+---
+
+## 🛡️ Safety Guardrails
+
+1. **Location Validation** — Fail-fast on non-existent cities
+2. **Activity Feasibility** — Block impossible activities (beach in desert)
+3. **Weather Constraints** — Never hallucinate metrics
+4. **Output Validation** — Pydantic rejects malformed LLM output
+5. **Real Place Names** — LLM instructed to use OSM POI list, not invent locations
+
+---
+
+## 📝 Example Responses
+
+### Single-Day Plan
+
+**Input**: "Beach day at Goa"
+
+**Output**:
+```
+📋 Your Plan
+Risk Level: LOW ✅
+
+⭐ Step 1: Head to the beach and set up your spot (09:00 - 10:00 @ Anjuna Beach)
+⭐ Step 2: Enjoy swimming and beach games (10:00 - 13:00 @ Anjuna Beach)
+⭐ Step 3: Grab lunch at a beach shack (13:00 - 14:00 @ Titos Cafe)
+⭐ Step 4: Relax on the sand (14:00 - 17:00 @ Anjuna Beach)
+```
+
+### Multi-Day Plan with Packing List
+
+**Input**: "Beach vacation in Goa for 1 week"
+
+**Output**:
+```
+📋 Your Plan (7 Days)
+
+🎒 What to Pack
+• Light summer clothes
+• Sunscreen SPF 50+
+• Hat and sunglasses
+• Comfortable walking shoes
+• Refillable water bottle
+• Beach cover-up
+• Moisturizer (salt water dries skin)
+
+📅 Friday, March 28, 2026
+⭐ Step 1: Arrive and settle in (14:00 - 16:00 @ Your Resort)
+⭐ Step 2: Explore local bazaar (17:00 - 19:00 @ Anjuna Market)
+
+📅 Saturday, March 29, 2026
+⭐ Step 1: Beach morning (08:00 - 11:00 @ Baga Beach)
+⭐ Step 2: Water sports (11:00 - 13:00 @ Baga Water Sports)
+...
 ```
 
 ---
 
 ## 💼 Use Cases
 
-### 1️⃣ Personal Travel Planning
-**Scenario**: Family wants to plan a week-long holiday itinerary  
-**Before Chronos**: Check weather manually, cancel or reschedule last-minute  
-**With Chronos**: 
-- ✅ Submit multi-day itinerary (beach → hiking → city tour)
-- ✅ Chronos identifies weather-sensitive activities (hiking risky if stormy)
-- ✅ Generates optimized schedule with rain-aware buffers
-- ✅ Family adjusts plan proactively instead of mid-trip surprises
+- 🏖️ **Personal Travel Planning** — Multi-day itineraries with weather adaptation
+- 👰 **Event Coordination** — Outdoor ceremonies with rain contingencies
+- 📦 **Logistics Routes** — Delivery scheduling around weather windows
+- 🏫 **School Field Trips** — Educational excursions with backup plans
+- ⚽ **Sports Events** — Tournament scheduling with weather awareness
+- 🚨 **Emergency Response** — Critical aid distribution in adverse conditions
 
 ---
 
-### 2️⃣ Event Coordination
-**Scenario**: Wedding planner organizing outdoor ceremony + reception  
-**Before Chronos**: Relies on manual weather checks and contingency plans  
-**With Chronos**:
-- ✅ Submit ceremony time + reception venue + potential rain date
-- ✅ Chronos calculates precipitation risk windows
-- ✅ Suggests optimal timing or covered alternatives
-- ✅ Provides decision trace for stakeholder communication
+## 🤝 Contributing
 
-**Output Example**:
-- Option A: Outdoor ceremony 4 PM Saturday → 75% rain risk
-- Option B: Shift to 10 AM Sunday (45% rain) + have tent setup ready
+Contributions welcome! Areas for enhancement:
+- Real API integration (Google Maps, Mapbox)
+- Multi-language support
+- Advanced weather-based rescheduling
+- User authentication & saved plans
+- Mobile app version
 
 ---
 
-### 3️⃣ Logistics & Delivery Routes
-**Scenario**: Logistics coordinator planning daily delivery routes  
-**Before Chronos**: Static route planning, weather incidents cause delays  
-**With Chronos**:
-- ✅ Input: 5 delivery stops in different neighborhoods
-- ✅ Chronos identifies weather-sensitive stops (outdoor waits, sensitive cargo)
-- ✅ Reorders route to avoid peak rain windows
-- ✅ Injects travel buffers between stops when flooding likely
-- ✅ Real-time plan adjustment minimizes missed deliveries
+## 📄 License
+
+MIT License. See LICENSE file for details.
 
 ---
 
-### 4️⃣ School Field Trips
-**Scenario**: Teacher planning outdoor educational excursion  
-**Before Chronos**: Limited weather adaptation, trip often cancelled  
-**With Chronos**:
-- ✅ Submit planned activities: outdoor nature walk + museum backup
-- ✅ Chronos auto-detects weather sensitivity level
-- ✅ If rain forecast: Generates alternate indoor itinerary (same curriculum)
-- ✅ Provides risk transparency for parent communication
+## 👨‍💻 Team
 
----
-
-### 5️⃣ Sports Event Scheduling
-**Scenario**: Tournament organizer with multiple outdoor match venues  
-**Before Chronos**: Weather delays, last-minute cancellations  
-**With Chronos**:
-- ✅ Input: 6 tennis matches across 3 courts over 2 days
-- ✅ Chronos identifies wind-sensitive (tennis) vs. rain-sensitive (soccer) conflicts
-- ✅ Suggests reordering: Schedule wind-sensitive matches in morning slot
-- ✅ Provides rain contingency (covered courts) with time buffers
-
----
-
-### 6️⃣ Emergency Response Planning
-**Scenario**: Disaster relief coordinator planning supply distribution  
-**Before Chronos**: Weather surprises affect critical aid delivery  
-**With Chronos**:
-- ✅ Input: Multiple aid checkpoints across flood-prone areas
-- ✅ Chronos calculates flooding risk per location per time window
-- ✅ Generates safe routes avoiding peak rain / mudslide windows
-- ✅ Decision trace helps justify routing to incident commanders
-
----
-
-### 7️⃣ Hackathon Demo Scenario (Simulation Mode ✨)
-**Scenario**: Judges want to see stable demo without live API calls  
-**With Chronos Simulation Mode**:
-- ✅ Set `SIMULATION_MODE=true` in `.env`
-- ✅ Deterministic simulated weather for consistent judging experience
-- ✅ Same LLM reasoning pipeline as production
-- ✅ No API throttling, no network failures
-- ✅ Reproducible results for every demo run
-
----
-
-## 🚀 Setup Instructions
-
-### 📋 Prerequisites
-Before starting, ensure you have the following installed on your laptop:
-- 🐍 **Python 3.10+** ([Download here](https://www.python.org/downloads/))
-- 🔧 **Git** ([Download here](https://git-scm.com/))
-- 🔑 **Google Gemini API key** ([Get it here](https://aistudio.google.com/app/apikey))
-
-### ⚡ Quick Start (4 Simple Steps)
-
-#### Step 1️⃣ Clone the Repository
-Copy the project to your laptop:
-```bash
-git clone https://github.com/WIBD-Vadodara/HackIconics.git
-cd HackIconics
-```
-
-#### Step 2️⃣ Set Up Python Virtual Environment
-Create an isolated environment for the project:
-
-**On Windows (PowerShell):**
-```powershell
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-```
-
-**On macOS/Linux (Terminal):**
-```bash
-python -m venv .venv
-source .venv/bin/activate
-```
-
-#### Step 3️⃣ Install Dependencies
-Install all required packages:
-```bash
-pip install -r requirements.txt
-```
-
-#### Step 4️⃣ Configure API Key
-Create a `.env` file in the project root and add your Google Gemini API key:
-```bash
-# Create the .env file
-cd HackIconics
-# On Windows (PowerShell): echo "GEMINI_API_KEY=your-api-key-here" > .env
-# On macOS/Linux: echo "GEMINI_API_KEY=your-api-key-here" > .env
-```
-
-Or simply open a text editor, create a file named `.env` in the `HackIconics/` folder and paste:
-```
-GEMINI_API_KEY=your-api-key-here
-```
-
-Replace `your-api-key-here` with your actual Google Gemini API key.
-
-### ▶️ Run the Application
-Once setup is complete, start the application:
-```bash
-streamlit run app.py
-```
-
-✨ The app will open automatically in your browser at `http://localhost:8501`
-
----
-
-### 🆘 Troubleshooting
-
-| ❓ Issue | ✅ Solution |
-|-------|----------|
-| Python command not found | Ensure Python is installed and added to PATH. Restart your terminal. |
-| `.venv` not activating | Use `python -m venv .venv` again, then activate it. |
-| Module not found error | Ensure your virtual environment is activated and run `pip install -r requirements.txt`. |
-| API key errors | Double-check your `.env` file has the correct format: `GEMINI_API_KEY=<your-key>`. |
-| Port 8501 already in use | Run `streamlit run app.py --server.port 8502` to use a different port. |
-
-### 🎮 Optional: Demo Mode
-To test the app without an API key (using simulated weather data):
-```bash
-echo "SIMULATION_MODE=true" >> .env
-streamlit run app.py
-```
-
-### 🌐 Optional: Advanced Deployment
-For deployment servers, use headless mode:
-```bash
-streamlit run app.py --server.headless true --server.port 8080
-```
-
----
-
-## 📁 Repository Structure
-- 🎨 `/app.py` → Streamlit UI, session state, and rendering logic
-- 🤖 `/agent.py` → pydantic-ai agent orchestration and prompt builder
-- 📊 `/models.py` → Typed response schema shared between UI and agent
-- ⛅ `/tools.py` → Weather tooling, caching, and wttr.in adapter
-- 🛠️ `/utils.py` → Location parsing, classification, and risk helpers
-- 📦 `/assets` → Branding, screenshots, or architecture diagrams
-- 📝 `/requirements.txt` → Python dependencies
-- 📖 `/README.md` → Reference template supplied by organizers
-
----
-
-## 👥 Team Members
-- 👩‍💻 Nancy Vaghela – [@nancy325](https://github.com/nancy325) · nancysvaghela@gmail.com
-- 👩‍💻 Bhakti Moteriya – [@Bhakti1112](https://github.com/Bhakti1112) · bhaktimoteriya465@gmail.com
-- 👩‍💻 Isha Patel – [@Isha1530](https://github.com/Isha1530) · ishahp150305@gmail.com
-- 👨‍💻 Arya Mehta – [@aryamehta0302](https://github.com/aryamehta0302) · aryamehta0302@gmail.com
-
----
-
-## 💡 Notes / Assumptions
-- 📍 Explicit city/state/country inputs always override auto-detect; the agent never invents or infers missing locations.
-- 📅 wttr.in provides three-day forecasts; for longer horizons, Chronos switches to clearly labeled simulated estimates to avoid misinformation.
-- 💾 Plans and decision traces live in Streamlit session state only—no external database is provisioned to keep the footprint light for the hackathon.
-- 🌍 IP detection relies on free tiers (ip-api, ipapi, wttr); excessive requests may trigger throttling, so manual entry remains available.
-- 🚀 **Future Vision (from PPT)**: Extend Chronos beyond personal planning into logistics optimization, emergency response scheduling, and field operations coordination wherever weather, time, and critical decisions intersect.
-- 📈 **Roadmap Ideas**: Calendar integrations, proactive alerts, multi-user persistence, geospatial feasibility datasets, and richer "programmatic empathy" rules for edge-case conditions.
-
----
-
-## ✨ Submission Declaration
-This project was developed as part of **WiBD GenAI Hackathon 2026** and all code was written during the hackathon period.
+**HackIconics** — WiBD GenAI Hackathon 2026

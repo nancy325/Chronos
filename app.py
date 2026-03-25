@@ -986,22 +986,18 @@ if st.session_state.response:
 
             # ── Main Plan (Plan A) ────────────────────────────────────────
             if response.plan_a:
-                st.markdown("## 📋 Your Original Plan")
+                st.markdown("## 📋 Your Plan")
                 display_plan(response.plan_a, multi_day=is_multi_day)
-
-            # ── Suggestions by Chronos (Plan B) ──────────────────────────
-            if response.plan_b:
-                st.markdown("## ✨ Chronos Smart Suggestions")
-                st.markdown(
-                    f'<div style="background: linear-gradient(135deg, #f093fb 10%, #f5576c 100%); '
-                    f'color: white; border-radius: var(--border-radius); padding: 1.25rem 2rem; '
-                    f'margin: 0.5rem 0 1rem 0; box-shadow: var(--card-shadow); position: relative; '
-                    f'animation: slideInRight 0.6s ease-out;">'
-                    f'<h3 style="margin: 0; color: white; font-size: 1.2rem;">🎯 {response.plan_b.name}</h3>'
-                    f'</div>',
-                    unsafe_allow_html=True,
-                )
-                display_plan(response.plan_b, multi_day=is_multi_day)
+                
+                # ── Packing List (Multi-day only) ──────────────────────
+                if is_multi_day and hasattr(response.plan_a, 'packing_list') and response.plan_a.packing_list:
+                    st.markdown("### 🎒 What to Pack")
+                    packing_html = '<div style="background: #f0f9ff; border-left: 4px solid #3b82f6; padding: 1.5rem; border-radius: 8px; margin: 1rem 0;">'
+                    packing_html += '<ul style="margin: 0; padding-left: 1.5rem;">'
+                    for item in response.plan_a.packing_list:
+                        packing_html += f'<li style="margin: 0.5rem 0; color: #1e40af;"><strong>{item}</strong></li>'
+                    packing_html += '</ul></div>'
+                    st.markdown(packing_html, unsafe_allow_html=True)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -1035,11 +1031,8 @@ if st.session_state.saved_plans:
                 st.markdown('<div style="margin: 1rem 0;"></div>', unsafe_allow_html=True)
                 
                 if prev.plan_a:
-                    st.markdown("### 📋 Original Plan")
+                    st.markdown("### 📋 Plan")
                     display_plan(prev.plan_a, multi_day=prev_multi)
-                if prev.plan_b:
-                    st.markdown("### ✨ Chronos Suggestions")
-                    display_plan(prev.plan_b, multi_day=prev_multi)
 
 
 # ──────────────────────────────────────────────────────────────────────────────

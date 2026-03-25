@@ -45,12 +45,13 @@ class TaskStep(BaseModel):
 
 class PlanOption(BaseModel):
     """A complete plan option with risk assessment."""
-    name: str = Field(description="Plan name (e.g., 'Original Plan', 'Weather-Optimized')")
+    name: str = Field(description="Plan name (e.g., 'Your Adventure')")
     summary: str = Field(description="One-sentence summary of this plan")
     steps: list[TaskStep] = Field(description="Ordered list of steps")
     overall_risk: RiskLevel = Field(description="Overall weather risk level")
     risk_explanation: str = Field(description="Why this risk level was assigned")
     recommended: bool = Field(default=False, description="Is this the recommended option?")
+    packing_list: Optional[list[str]] = Field(default=None, description="Items to pack for multi-day trips")
 
 
 class DecisionPoint(BaseModel):
