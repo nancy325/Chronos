@@ -58,6 +58,49 @@ def _run_async(coro):
     return future.result()  # blocks until done
 
 
+def _get_default_packing_list(activity: str = "general") -> list[str]:
+    """Generate sensible default packing suggestions based on activity type.
+    
+    Returns:
+        List of recommended packing items for the activity/weather conditions.
+    """
+    base_essentials = [
+        "Phone & charger",
+        "Wallet & ID",
+        "Medications (if any)",
+        "Sunscreen & sunglasses",
+    ]
+    
+    activity_lower = activity.lower() if activity else "general"
+    
+    activity_packs = {
+        "beach": ["Swimsuit", "Towel", "Waterproof bag", "Light clothing"],
+        "hiking": ["Comfortable shoes", "Water bottle", "Backpack", "Hat"],
+        "city": ["Comfortable shoes", "Light jacket", "Small bag"],
+        "mountain": ["Warm jacket", "Hat", "Gloves", "Hiking boots"],
+        "general": ["Light jacket", "Comfortable shoes", "Small bag"],
+    }
+    
+    # Find matching activity or use general
+    activity_items = base_essentials.copy()
+    for key, items in activity_packs.items():
+        if key in activity_lower:
+            activity_items.extend(items)
+            break
+    else:
+        activity_items.extend(activity_packs["general"])
+    
+    # Remove duplicates while preserving order
+    seen = set()
+    result = []
+    for item in activity_items:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    
+    return result
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Page Configuration
 # ──────────────────────────────────────────────────────────────────────────────
@@ -989,13 +1032,23 @@ if st.session_state.response:
                 st.markdown("## 📋 Your Plan")
                 display_plan(response.plan_a, multi_day=is_multi_day)
                 
-                # ── Packing List (Multi-day only) ──────────────────────
-                if is_multi_day and hasattr(response.plan_a, 'packing_list') and response.plan_a.packing_list:
+                # ── Packing List (always show) ─────────────────────────
+                if hasattr(response.plan_a, 'packing_list') and response.plan_a.packing_list:
                     st.markdown("### 🎒 What to Pack")
                     packing_html = '<div style="background: #f0f9ff; border-left: 4px solid #3b82f6; padding: 1.5rem; border-radius: 8px; margin: 1rem 0;">'
                     packing_html += '<ul style="margin: 0; padding-left: 1.5rem;">'
                     for item in response.plan_a.packing_list:
-                        packing_html += f'<li style="margin: 0.5rem 0; color: #1e40af;"><strong>{item}</strong></li>'
+                        packing_html += f'<li style="margin: 0.5rem 0; color: #1e40af;"><strong>✓ {item}</strong></li>'
+                    packing_html += '</ul></div>'
+                    st.markdown(packing_html, unsafe_allow_html=True)
+                else:
+                    # Show default essentials for single-day trips
+                    st.markdown("### 🎒 What to Pack")
+                    sensible_defaults = _get_default_packing_list(response.activity if hasattr(response, 'activity') else "general")
+                    packing_html = '<div style="background: #f0f9ff; border-left: 4px solid #3b82f6; padding: 1.5rem; border-radius: 8px; margin: 1rem 0;">'
+                    packing_html += '<ul style="margin: 0; padding-left: 1.5rem;">'
+                    for item in sensible_defaults:
+                        packing_html += f'<li style="margin: 0.5rem 0; color: #1e40af;"><strong>✓ {item}</strong></li>'
                     packing_html += '</ul></div>'
                     st.markdown(packing_html, unsafe_allow_html=True)
 
